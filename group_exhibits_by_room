@@ -1,0 +1,189 @@
+#!/usr/bin/env perl
+################################################################################
+#
+#  group_exhibits_by_room
+#
+#  Read a tab-delimited list of Exhibit brands followed by a comma-separated
+#  list of rooms. Group the exhibits by convention center floor and room and
+#  print the results to the terminal.
+#
+################################################################################
+use warnings;
+use strict;
+
+########################################
+#
+#  Organize exhibitors into a
+#  data structure that keeps up with
+#  a unique list (set) of brands that
+#  are assigned to each room.
+#
+#  exhibits{room}{brands}
+#
+my (%exhibits, @brands);
+while (<>) {
+  s/"+//g; s/\s+$//;
+  my ($company, $rooms_csv, $brands_pipe) = split /\t/;
+  next if "Company Name" eq $company or not defined $rooms_csv or $rooms_csv =~ /^\s*$/;
+  if (defined $brands_pipe) {
+      $brands_pipe =~ s/Brands - //ig if defined $brands_pipe;
+      @brands = split(/\|/, $brands_pipe);
+  } else {
+    undef @brands;
+  }
+  my %brand_names;
+  foreach my $id ($company, @brands) {
+    $id =~ s/^\s+//; $id =~ s/\s+$//;
+    $brand_names{$id}++;
+  }
+  my @brands_in_room = sort keys %brand_names;
+  my @rooms = split /\s*,\s*/, $rooms_csv;
+  foreach my $room (@rooms) {
+    foreach my $brand (@brands_in_room) {
+      $exhibits{$room}{$brand}++;
+    }
+  }
+}
+
+########################################
+#
+#  Because we care about order, build
+#  a new data structure with rooms
+#  sorted by floor and name/number.
+#
+#  If exactly the same exhibitors
+#  or brands appear in multiple rooms
+#  that are on the same floor, combine
+#  them into a single, comma-separated
+#  location. For example, instead of
+#  listing SVS twice, just say that
+#  they will be in "1442, 1444"
+#
+my (@exhibits_sorted, %exhibit_idx);
+foreach my $room (sort by_booth_number keys %exhibits) {
+  my $list_of_brands_in_room = join ", ", sort keys %{$exhibits{$room}};
+  if (exists $exhibit_idx{$list_of_brands_in_room} and 
+      expo_floor($room) eq
+      expo_floor($exhibits_sorted[$exhibit_idx{$list_of_brands_in_room}][0][0]))
+  {
+    push @{$exhibits_sorted[$exhibit_idx{$list_of_brands_in_room}][0]}, $room;
+  } else {
+    push @exhibits_sorted, [[$room], $list_of_brands_in_room];
+    $exhibit_idx{$list_of_brands_in_room} = $#exhibits_sorted;
+  }
+}
+
+########################################
+#
+#  Print each room and which brands
+#  will be in them to the terminal.
+#  Add floor dividors when we change
+#  floors.
+#
+my $previous_floor = 0;
+foreach my $exhibit (@exhibits_sorted) {
+  print "\n\t", floor_name(expo_floor($exhibit->[0][0])), "\n\n"
+    if expo_floor($exhibit->[0][0]) != $previous_floor;
+  print join(", ", @{$exhibit->[0]}), "\t", $exhibit->[1], "\n";
+  $previous_floor = expo_floor($exhibit->[0][0]);
+}
+
+########################################
+#
+#  expo_floor()
+#
+#  Given an exhibit room or booth
+#  return the floor number.
+#
+sub expo_floor {
+  my %floor = (
+    "Alexander"        => 16,
+    "Adventure"        =>  1,
+    "Aster"            => 16,
+    "Club Lounge"      => 15,
+    "Connection"       =>  1,
+    "Epiphany"         =>  2,
+    "Euphoria"         =>  2,
+    "Exploration"      =>  1,
+    "Imagination"      =>  1,
+    "Innovation"       =>  1,
+    "Inspiration"      =>  1,
+    "Journey/Creation" =>  1,
+    "Knowledge"        =>  1,
+    "Nirvana A"        =>  2,
+    "Nirvana B"        =>  2,
+    "Nirvana C"        =>  2,
+    "Perfection"       =>  1,
+    "Prosperity"       =>  2,
+    "Schaumburg A"     =>  1,
+    "Schaumburg B"     =>  1,
+    "Schaumburg C"     =>  1,
+    "Schaumburg D"     =>  1,
+    "Schaumburg E"     =>  1,
+    "Schaumburg F"     =>  1,
+    "Schaumburg G"     =>  1,
+    "Schaumburg H"     =>  1,
+    "Serenity"         =>  2,
+    "Studio"           =>  2,
+    "Utopia A"         =>  2,
+    "Utopia B"         =>  2,
+    "Utopia C"         =>  2,
+    "Utopia D"         =>  2,
+  );
+  my $room = shift;
+  if ($room =~ /\D/) {
+    die "ERROR: No floor for room $room" unless exists $floor{$room};
+    return $floor{$room};
+  } elsif ($room > 8000) {
+    return substr($room, 0, 1)."0";
+  } else {
+    return substr($room, 0, length($room)-2);  # two digit room numbers per floor
+  }
+}
+
+########################################
+#
+#  by_booth_number()
+#
+#  A sort routine that enables us to
+#  sort rooms by floor number followed
+#  by name or number.
+#
+sub by_booth_number {
+  if ($a =~ /\D/ and $b =~ /\D/) {  # both terms are words
+    return expo_floor($a) <=> expo_floor($b) || $a cmp $b;
+  } elsif ($a =~ /\D/) {            # only first term is a word
+    return expo_floor($a) <=> expo_floor($b) || -1;
+  } elsif ($b =~ /\D/) {            # only second term is a word
+    return expo_floor($a) <=> expo_floor($b) || 1;
+  } else {                          # both terms are numbers
+    return expo_floor($a) <=> expo_floor($b) || $a <=> $b;
+  }
+}
+
+########################################
+#
+#  floor_name()
+#
+#  Given a floor number, return
+#  suitable text to use for the floor
+#  dividers.
+#
+sub floor_name {
+  my $floor = shift;
+  die "ERROR: floor $floor out of range"
+    unless (0 < $floor and $floor < 20) or $floor >= 80;
+  if ($floor == 1) {
+    return $floor, "st floor";
+  } elsif ($floor == 2) {
+    return "Mezzanine";
+  } elsif ($floor == 3) {
+    return $floor, "rd floor";
+  } elsif ($floor == 80) {
+    return "Ear Gear Exhibit";
+  } elsif ($floor == 90) {
+    return "Expo Hall";
+  } else {
+    return $floor, "th floor";
+  }
+}

@@ -1,0 +1,15 @@
+#!/usr/bin/env perl
+use URL::Encode qw(url_encode_utf8);
+use warnings;
+use strict;
+
+while (<>) {
+  chomp;
+  my ($location, @exhibitors) = split /\t/;
+  print $location, "\t";
+  foreach my $exhibitor (@exhibitors) {
+    my $duck_link = "https://duckduckgo.com/?q=!ducky+";
+    $duck_link .= url_encode($location);
+    print $duck_link, "\n";
+  }
+}

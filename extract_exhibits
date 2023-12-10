@@ -1,0 +1,91 @@
+#!/usr/bin/env perl
+################################################################################
+#
+#  extract_exhibits
+#
+#  Parses a "Webpage, Single File" *.mhtml save of
+#  https://axpona.com/exhibitors/ to extract Exhibitor names
+#  followed by a comma-separated list of rooms and booths
+#
+################################################################################
+use Encode;
+use warnings;
+use strict;
+
+binmode(STDOUT, ":encoding(UTF-8)");
+
+########################################
+#
+#  *.mhtml files split long lines by
+#  appending a "=" character at the
+#  point where they are split. So, lets
+#  read all of the lines, joining
+#  the splits whenever we find a line
+#  that ends with an "=".
+#
+my @lines;
+while (<>) {
+  s/\r\n$//;
+  if (@lines and $lines[$#lines] =~ /=$/) {
+    chop $lines[$#lines];
+    $lines[$#lines] .= $_;
+  } else {
+    push @lines, $_;
+  }
+}
+
+open(my $fh, ">", "lines.txt");
+binmode($fh, ":encoding(UTF-8)");
+print $fh join("\n", @lines), "\n";
+close $fh;
+
+########################################
+#
+#  Look for Exhibitor brands and booths
+#  in the webpage download. Fortunately,
+#  these are marked using CSS in a
+#  consistent fashion.  When we have a
+#  $brand + $booths combo, print them
+#  to the terminal.
+#
+my ($brand, $booths, @brands);
+foreach (@lines) {
+  if (/ class=3D"uww_exh_list_(?:grid_)?companyname(?:always)?[^>]+>([^<]+)</) {
+    $brand = $1;
+    $brand =~ s/&amp;/&/g;
+    $brand =~ s/&nbsp;/ /g;
+    $brand =~ s/^\s+//; $brand =~ s/\s+$//;  # remove leading/trailing whitespace
+    $brand =~ s/\s\s+/ /;  # remove duplicate spaces
+    $brand =~ s/,//g;  # remove commas
+    $brand = decode_symbols($brand);
+    push @brands, $brand;
+    next;
+  }
+  if (defined $brand and / class=3D"uww_exh_list_boothNumber">(?:Booth|Location):\s*([^<]+)</) {
+    $booths = $1;
+    $booths =~ s/^\s+//; $booths =~ s/\s+$//;
+    print $brand, "\t", $booths, "\n";
+    undef $brand;
+    next;
+  }
+}
+
+my $row = 0;
+open($fh, ">", "brands.txt");
+binmode($fh, ":encoding(UTF-8)");
+print $fh map {(++$row % 4) ? "$_\n" : "$_\n\n"} sort {lc($a) cmp lc($b)} @brands;
+print $fh "\n" if 0 == (++$row % 4);
+close $fh;
+
+
+sub decode_symbols {
+  my $string = shift;
+  my $decoded_string = $string;
+  while ($string =~ m{((?:=[0-9a-f][0-9a-f])+)}ig) {
+    my $hex_string = $1;
+    $hex_string =~ s/^=//;
+    my $symbol = decode("utf8", pack("C*", map { hex($_) } split(/=/, $hex_string)));
+    $decoded_string =~ s/=$hex_string/$symbol/;
+  }
+  $decoded_string;
+}

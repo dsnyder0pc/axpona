@@ -1,0 +1,26 @@
+#!/bin/bash
+################################################################################
+#
+#  make_exhibits_by_room
+#
+#  Given a "Webpage, Single File" *.mhtml save of
+#  https://axpona.com/exhibitors/, create a *.tsv (tab-separated values)
+#  file with sorted unique exhibits, grouped by floor and room number.
+#
+#  If there's output from a previous run display a diff to show any changes
+#
+################################################################################
+umask 022
+webpage_download="$1"
+if [ -z "${webpage_download}" ] || [ "${webpage_download}" == "${webpage_download%.mhtml}" ]; then
+  >&2 echo "Usage: $0 webpage (.mhtml)"
+  exit 1
+fi
+
+exhibits_by_room="${webpage_download%.mhtml}.tsv"
+./extract_exhibits "${webpage_download}" | ./group_exhibits_by_room > "${exhibits_by_room}"
+ls -l "${exhibits_by_room}"
+
+if [ "$(ls | grep -c '\.tsv$')" -ge 2 ]; then
+  eval "diff $(ls *.tsv | tail -n 2 | sed 's/^/"/;s/$/"/' | fmt -500)"
+fi
