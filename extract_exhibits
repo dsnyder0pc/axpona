@@ -61,7 +61,7 @@ foreach (@lines) {
     push @brands, $brand;
     next;
   }
-  if (defined $brand and / class=3D"uww_exh_list_boothNumber">(?:Booth|Location):\s*([^<]+)</) {
+  if (defined $brand and / class=3D"uww_exh_list_boothNumber">(?:Booth|Location):\s*(?:\d - )?([^<]+)</) {
     $booths = $1;
     $booths =~ s/^\s+//; $booths =~ s/\s+$//; $booths =~ s/\b\d-\s+//g;
     print $brand, "\t", $booths, "\n";
