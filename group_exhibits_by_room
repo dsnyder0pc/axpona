@@ -129,8 +129,12 @@ sub expo_floor {
     "Utopia B"         =>  2,
     "Utopia C"         =>  2,
     "Utopia D"         =>  2,
+    "Utopia Lounge"    =>  2,
   );
   my $room = shift;
+  if ($room =~ /^C(\d)\d+$/) {
+    return $1;
+  }
   if ($room =~ /\D/) {
     die "ERROR: No floor for room $room" unless exists $floor{$room};
     return $floor{$room};
