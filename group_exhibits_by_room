@@ -110,6 +110,7 @@ sub expo_floor {
     "Inspiration"      =>  1,
     "Journey/Creation" =>  1,
     "Knowledge"        =>  1,
+    "Living Room"      =>  2,
     "Nirvana A"        =>  2,
     "Nirvana B"        =>  2,
     "Nirvana C"        =>  2,
